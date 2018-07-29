@@ -10,10 +10,10 @@ class Kalman
 public:
     explicit Kalman();
     double filter(double val);
-
+    void setCoefficient(double coeff);
 private:
-    double previousValue = 0.0;
-    double coefficient = 0.5;
+    double m_previousValue = 0.0;
+    double m_coefficient = 0.3;
 };
 
 #endif // KALMAN_H

@@ -12,8 +12,8 @@ const int MPU_ADDR = 0x68;
 int16_t AcX,AcY,AcZ,Tmp,GyX,GyY,GyZ;
 
 /* WiFi */
-const char* ssid     = "********";
-const char* password = "***********";
+const char* ssid     = "Sergio_LINK";
+const char* password = "4F48C9n?t-";
 /* WiFi Reconnection */
 const int wifiCheckTimeout = 10000;
 int lastCheckTime = 0;
@@ -71,15 +71,8 @@ void uartDebugPrint(){
     Serial.print(" | GyZ = "); Serial.println(GyZ);
 }
 
-void buildAndSendUdpPacket(){
+void buildAndSendStringPacket(){
     String packet = "";
-    //packet += "<ax>" + String(AcX) + "</ax>";
-    //packet += "<ay>" + String(AcY) + "</ay>";
-    //packet += "<az>" + String(AcZ) + "</az>";
-    //packet += "<gx>" + String(GyX) + "</gx>";
-    //packet += "<gy>" + String(GyY) + "</gy>";
-    //packet += "<gz>" + String(GyZ) + "</gz>";
-    //packet += "<t>" + String(Tmp/340.00+36.53) + "</t>";
 
     packet += String(AcX) + " ";
     packet += String(AcY) + " ";
@@ -92,6 +85,43 @@ void buildAndSendUdpPacket(){
     byte packetBuffer[packet.length()+1];
     packet.getBytes(packetBuffer, packet.length()+1);
     udpWritePacket(packetBuffer, packet.length()+1);
+}
+
+void buildAndSendBytePacket(){
+  // packet size 14 bytes with temp two bytes
+  // +2 bytes for packet end marker(packet delimiter)
+  const size_t packetSize = 16;
+  byte packet[packetSize] = {0};
+
+  packet[0] = (AcX & 0x00FF);
+  packet[1] = ((AcX & 0xFF00) >> 8);
+
+  packet[2] = (AcY & 0x00FF);
+  packet[3] = ((AcY & 0xFF00) >> 8);
+
+  packet[4] = (AcZ & 0x00FF);
+  packet[5] = ((AcZ & 0xFF00) >> 8);
+
+  packet[6] = (GyX & 0x00FF);
+  packet[7] = ((GyX & 0xFF00) >> 8);
+
+  packet[8] = (GyY & 0x00FF);
+  packet[9] = ((GyY & 0xFF00) >> 8);
+
+  packet[10] = (GyZ & 0x00FF);
+  packet[11] = ((GyZ & 0xFF00) >> 8);
+
+  // Calculate temp by formula Tmp / 340.00 + 36.53 on receive side
+  packet[12] = (Tmp & 0x00FF);
+  packet[13] = ((Tmp & 0xFF00) >> 8);
+
+  // Two byte packet end marker, chosed values equal to 132 celsium temperature
+  // which is unreal for temp in normal environment
+  packet[14] = 0x7F;
+  packet[15] = 0xFF;
+
+  Serial.write(packet, packetSize); // Debug
+  udpWritePacket(packet, packetSize);
 }
 
 void udpWritePacket(byte *packetBuffer, unsigned int packetSize){
@@ -142,8 +172,9 @@ void loop() {
 
     
     mpuReadData();
-    buildAndSendUdpPacket();
-    uartDebugPrint();
+    //buildAndSendStringPacket();
+    buildAndSendBytePacket();
+    //uartDebugPrint();
     
     delay(5);
 }

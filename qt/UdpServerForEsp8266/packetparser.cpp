@@ -27,7 +27,34 @@ void PacketParser::setPacket(QByteArray packet)
 
 void PacketParser::m_parsePacket(QByteArray packet)
 {
-    m_parsePacket(QString(packet));
+    // Packet size 16 bytes with packet delimiter 0x7F 0xFF at the end
+    if(packet.size() >= 16){
+        if(packet[14] != 0x7F && packet[15] != 0xFF) return;
+    } else {
+        return;
+    }
+    m_parsedPacket.ax((fromTwoBytes(packet[0], packet[1]) * 1.0));
+    m_parsedPacket.ay((fromTwoBytes(packet[2], packet[3]) * 1.0));
+    m_parsedPacket.az((fromTwoBytes(packet[4], packet[5]) * 1.0));
+
+    m_parsedPacket.gx((fromTwoBytes(packet[6], packet[7]) * 1.0));
+    m_parsedPacket.gy((fromTwoBytes(packet[8], packet[9]) * 1.0));
+    m_parsedPacket.gz((fromTwoBytes(packet[10], packet[11]) * 1.0));
+
+    double temp = 0;
+    temp = fromTwoBytes(packet[12], packet[13]) * 1.0;
+    temp = temp / 340.00 + 36.53;
+    m_parsedPacket.temp(temp);
+
+    m_parsedPacket += m_zeroOffset;
+}
+
+int16_t PacketParser::fromTwoBytes(uint8_t val1, uint8_t val2)
+{
+    int16_t output = 0;
+    output = val1 & 0x00FF;
+    output |= ((val2 & 0x00FF) << 8);
+    return output;
 }
 
 void PacketParser::m_parsePacket(QString packet)
@@ -65,9 +92,9 @@ Packet PacketParser::kalman(Packet packet)
     filteredPacket.ay( m_kalmanFilterAy.filter( packet.ay() ) );
     filteredPacket.az( m_kalmanFilterAz.filter( packet.az() ) );
 
-    filteredPacket.ax( m_kalmanFilterGx.filter( packet.gx() ) );
-    filteredPacket.ay( m_kalmanFilterGy.filter( packet.gy() ) );
-    filteredPacket.az( m_kalmanFilterGz.filter( packet.gz() ) );
+    filteredPacket.gx( m_kalmanFilterGx.filter( packet.gx() ) );
+    filteredPacket.gy( m_kalmanFilterGy.filter( packet.gy() ) );
+    filteredPacket.gz( m_kalmanFilterGz.filter( packet.gz() ) );
 
     filteredPacket.temp(packet.temp());
 
@@ -93,4 +120,14 @@ QString PacketParser::getString()
     str += QString::number(m_parsedPacket.temp()) + " ";
 
     return str;
+}
+
+void PacketParser::setKalmanCoefficient(double coeff)
+{
+    m_kalmanFilterAx.setCoefficient(coeff);
+    m_kalmanFilterAy.setCoefficient(coeff);
+    m_kalmanFilterAz.setCoefficient(coeff);
+    m_kalmanFilterGx.setCoefficient(coeff);
+    m_kalmanFilterGy.setCoefficient(coeff);
+    m_kalmanFilterGz.setCoefficient(coeff);
 }

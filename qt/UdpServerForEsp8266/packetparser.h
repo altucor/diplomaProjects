@@ -4,6 +4,7 @@
 #include <QString>
 #include <QStringList>
 #include <QByteArray>
+#include <QVector>
 
 #include "packet.h"
 #include "kalman.h"
@@ -24,9 +25,11 @@ public:
     Packet getPacket();
     void setFilter(int type);
     QString getString();
+    void setKalmanCoefficient(double coeff);
 
 private:
     void m_parsePacket(QByteArray packet);
+    int16_t fromTwoBytes(uint8_t val1, uint8_t val2);
     void m_parsePacket(QString packet);
     Packet kalman(Packet packet);
 

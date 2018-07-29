@@ -1,6 +1,9 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 
+#include <QFileDialog>
+#include <QDir>
+
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow)
@@ -76,6 +79,7 @@ void MainWindow::packetParserInitialization()
 
 void MainWindow::processNewPacket(QByteArray data)
 {
+    if(m_state == PAUSE) return;
     m_mpuPacketParser.setPacket(data);
     m_mpuPacketParser.setFilter(m_filterType);
     m_parsedPacket = m_mpuPacketParser.getPacket();
@@ -84,6 +88,19 @@ void MainWindow::processNewPacket(QByteArray data)
     updateAccelPlot();
     updateGyroPlot();
     updateMousePos();
+
+    m_mpuPacketParser.setKalmanCoefficient(ui->doubleSpinBox->value());
+
+    updateSlider();
+
+    m_xAxisCounter++;
+}
+
+void MainWindow::updateSlider()
+{
+    ui->horizontalSlider->setMaximum(m_xAxisCounter);
+    ui->horizontalSlider->setValue(m_xAxisCounter);
+    ui->label_8->setText("Min = 0; Current = " + QString::number(m_xAxisCounter) + "; Max = " + QString::number(m_xAxisCounter) + ";");
 }
 
 bool MainWindow::connectServer(UdpServerWrapper &serverPtr)
@@ -108,17 +125,8 @@ void MainWindow::updateAccelPlot()
     ui->customPlotAccel->graph(1)->addData(m_xAxisCounter, m_parsedPacket.ay());
     ui->customPlotAccel->graph(2)->addData(m_xAxisCounter, m_parsedPacket.az());
 
-    ui->customPlotAccel->xAxis->setRange(m_xAxisCounter, 512, Qt::AlignRight);
+    ui->customPlotAccel->xAxis->setRange(m_xAxisCounter, m_plotWidth, Qt::AlignRight);
     ui->customPlotAccel->replot();
-
-    ui->customPlotGyro->graph(0)->addData(m_xAxisCounter, m_parsedPacket.gx());
-    ui->customPlotGyro->graph(1)->addData(m_xAxisCounter, m_parsedPacket.gy());
-    ui->customPlotGyro->graph(2)->addData(m_xAxisCounter, m_parsedPacket.gz());
-
-    ui->customPlotGyro->xAxis->setRange(m_xAxisCounter, 512, Qt::AlignRight);
-    ui->customPlotGyro->replot();
-
-    m_xAxisCounter++;
 
     //if(m_xAxisCounter > m_xAxisMax)
     //    m_xAxisCounter = 0;
@@ -126,7 +134,12 @@ void MainWindow::updateAccelPlot()
 
 void MainWindow::updateGyroPlot()
 {
-    //
+    ui->customPlotGyro->graph(0)->addData(m_xAxisCounter, m_parsedPacket.gx());
+    ui->customPlotGyro->graph(1)->addData(m_xAxisCounter, m_parsedPacket.gy());
+    ui->customPlotGyro->graph(2)->addData(m_xAxisCounter, m_parsedPacket.gz());
+
+    ui->customPlotGyro->xAxis->setRange(m_xAxisCounter, m_plotWidth, Qt::AlignRight);
+    ui->customPlotGyro->replot();
 }
 
 void MainWindow::updateMousePos()
@@ -172,4 +185,103 @@ void MainWindow::on_checkBox_1_stateChanged(int arg1)
         m_filterType = KALMAN;
     else
         m_filterType = NONE;
+}
+
+void MainWindow::on_pushButton_4_clicked()
+{
+    if(m_state == PLAY){
+        m_state = PAUSE;
+        ui->pushButton_4->setText("Play");
+    } else if(m_state == PAUSE){
+        m_state = PLAY;
+        ui->pushButton_4->setText("Pause");
+    }
+}
+
+void MainWindow::on_pushButton_clicked()
+{
+    // Save data to file
+    QString fileName = QFileDialog::getSaveFileName(this, "Select file to save data", QDir::currentPath(), "*.dat");
+    QFile fd(fileName);
+    if( !fd.open(QIODevice::WriteOnly) ) return;
+
+    QTextStream fStream(&fd);
+
+    fStream << ui->textEdit->toPlainText();
+}
+
+void MainWindow::on_horizontalSlider_valueChanged(int value)
+{
+    m_sliderPosition = ui->horizontalSlider->value();
+
+    ui->label_8->setText("Min = 0; Current = " + QString::number(m_sliderPosition) + "; Max = " + QString::number(m_xAxisCounter) + ";");
+
+    ui->customPlotAccel->xAxis->setRange(m_sliderPosition, m_plotWidth, Qt::AlignRight);
+    ui->customPlotAccel->replot();
+    ui->customPlotGyro->xAxis->setRange(m_sliderPosition, m_plotWidth, Qt::AlignRight);
+    ui->customPlotGyro->replot();
+
+    if( m_state == PAUSE &&
+        m_loadedPackets.size() > m_plotWidth &&
+        m_loadedPackets.size() > m_sliderPosition
+        ){
+            m_parsedPacket = m_loadedPackets[m_sliderPosition];
+            updateUI();
+    }
+}
+
+void MainWindow::on_pushButton_2_clicked()
+{
+    // Load from file to memory
+
+    QString fileName = QFileDialog::getOpenFileName(this, "Select file for reading data", QDir::currentPath(), "*.dat");
+    loadFromFile(fileName);
+}
+
+void MainWindow::loadFromFile(QString fileName)
+{
+    QFile fd(fileName);
+    if( !fd.open(QIODevice::ReadOnly) ) return;
+
+    QTextStream fStream(&fd);
+
+    ui->textEdit->clear();
+
+    m_xAxisCounter = 0;
+
+    while( !fStream.atEnd() ){
+        QString packetLine = fStream.readLine();
+        ui->textEdit->append(packetLine);
+        m_mpuPacketParser.setPacket(packetLine);
+        m_parsedPacket = m_mpuPacketParser.getPacket();
+        updateUI();
+        updateAccelPlot();
+        updateGyroPlot();
+        m_loadedPackets.push_back(m_mpuPacketParser.getPacket());
+        m_xAxisCounter++;
+    }
+
+    updateSlider();
+}
+
+void MainWindow::on_radioButton_clicked()
+{
+    // MODE: Capture an process on fly
+    ui->pushButton->setDisabled(false);
+    ui->pushButton_2->setDisabled(true);
+    ui->pushButton_3->setDisabled(false);
+    ui->pushButton_4->setDisabled(false);
+    ui->pushButton_5->setDisabled(true);
+    m_state = PLAY;
+}
+
+void MainWindow::on_radioButton_2_clicked()
+{
+    // MODE: Analyze from file
+    m_state = PAUSE;
+    ui->pushButton->setDisabled(true);
+    ui->pushButton_2->setDisabled(false);
+    ui->pushButton_3->setDisabled(true);
+    ui->pushButton_4->setDisabled(true);
+    ui->pushButton_5->setDisabled(false);
 }
