@@ -6,7 +6,7 @@
 class Packet
 {
 public:
-    Packet();
+    explicit Packet();
     Packet(double _ax, double _ay, double _az, double _gx, double _gy, double _gz, double _temp);
     //Packet(Packet &&rval);
     Packet& operator = (Packet rvalue);

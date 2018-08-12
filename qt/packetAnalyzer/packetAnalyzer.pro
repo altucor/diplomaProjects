@@ -31,14 +31,22 @@ SOURCES += \
     packet.cpp \
     packetparser.cpp \
     qcustomplot.cpp \
-    kalman.cpp
+    kalman.cpp \
+    kalmanpacketfilter.cpp \
+    highpassfilter.cpp \
+    complementaryfilter.cpp \
+    complementarypacketfilter.cpp
 
 HEADERS += \
         mainwindow.h \
     packet.h \
     packetparser.h \
     qcustomplot.h \
-    kalman.h
+    kalman.h \
+    kalmanpacketfilter.h \
+    highpassfilter.h \
+    complementaryfilter.h \
+    complementarypacketfilter.h
 
 FORMS += \
         mainwindow.ui

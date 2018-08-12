@@ -13,7 +13,7 @@ public:
     void setCoefficient(double coeff);
 private:
     double m_previousValue = 0.0;
-    double m_coefficient = 0.3;
+    double m_coefficient = 0.5;
 };
 
 #endif // KALMAN_H
