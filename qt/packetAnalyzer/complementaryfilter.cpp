@@ -18,7 +18,9 @@ void ComplementaryFilter::setCoefficient(double coefficient)
 
 double ComplementaryFilter::process(double accel, double gyro)
 {
-    double result = (1 - m_coefficient) * (m_prevoiusResult + gyro) + m_coefficient * accel;
+    //double result = (1 - m_coefficient) * (m_prevoiusResult + gyro) + m_coefficient * accel;
+    double result = m_prevoiusResult + gyro * 0.1;
+    result = 0.9 * result + 0.1 * accel;
     m_prevoiusResult = result;
     return result;
 }

@@ -6,7 +6,13 @@ MainWindow::MainWindow(QWidget *parent) :
     ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+    this->setWindowTitle("packetAnalyzer");
+    // Initialize previous states of layers checkboxes
+    for(int i=0; i<6; i++)
+        m_checkedLayersPreviousState.push_back(true);
+
     initializeAll();
+    m_fftForm = std::unique_ptr<form_fft>( new form_fft());
 }
 
 MainWindow::~MainWindow()
@@ -64,6 +70,15 @@ void MainWindow::initializeProgressBars(qint64 min, qint64 max, qint64 startValu
     ui->progressBar_5->setMinimum(min);
     ui->progressBar_5->setMaximum(max);
     ui->progressBar_5->setValue(startValue);
+}
+
+void MainWindow::resetInPlotters()
+{
+    ui->customPlotAccelerometerIn->clearPlottables();
+    ui->customPlotGyroscopeIn->clearPlottables();
+
+    initializePLotter(ui->customPlotAccelerometerIn, ACCELEROMETER);
+    initializePLotter(ui->customPlotGyroscopeIn, GYROSCOPE);
 }
 
 void MainWindow::resetOutPlotters()
@@ -159,6 +174,36 @@ quint64 MainWindow::getPacketsCountFromFile(QFile &fd)
     return packetsCount - 1;
 }
 
+double MainWindow::accelToAngle(double value)
+{
+    // 16g - 2048 = 1G
+    double angle = 0.0;
+    double gValue = value / m_1G;
+
+    if(gValue > 1.0){
+        gValue = 1.0;
+    } else if(gValue < -1.0) {
+        gValue = -1.0;
+    }
+
+    if(gValue >= 0){
+        angle = 90 - m_toDeg * acos(gValue);
+    }else{
+        angle = m_toDeg * acos(-gValue) - 90;
+    }
+
+    return angle;
+}
+
+void MainWindow::processAccelAngles()
+{
+    m_xAccelAngle = accelToAngle(m_parsedPacket.ax());
+    m_yAccelAngle = accelToAngle(m_parsedPacket.ay());
+    m_zAccelAngle = accelToAngle(m_parsedPacket.az());
+
+    ui->label_accel_angle->setText("Accel Angle: X=" + QString::number(m_xAccelAngle) + "; Y=" + QString::number(m_yAccelAngle) + "; Z=" + QString::number(m_zAccelAngle));
+}
+
 void MainWindow::updateUI(Packet packet)
 {
     ui->progressBar_0->setValue(packet.ax()); // accel X
@@ -168,6 +213,7 @@ void MainWindow::updateUI(Packet packet)
     ui->progressBar_4->setValue(packet.gy()); // gyro Y
     ui->progressBar_5->setValue(packet.gz()); // gyro Z
     ui->label_13->setText("Temperature: " + QString::number(packet.temp()));
+    processAccelAngles();
 }
 
 void MainWindow::updatePlot(QCustomPlot *plot, double x, double y, double z)
@@ -180,8 +226,30 @@ void MainWindow::updatePlot(QCustomPlot *plot, double x, double y, double z)
     plot->replot();
 }
 
+void MainWindow::updateMaxYAxis(QCustomPlot *accelPlot, QCustomPlot *gyroPlot, Packet & dataPacket)
+{
+    //m_yAxisMax
+    if(abs(dataPacket.ax()) > m_yAxisMax)
+        m_yAxisMax = abs(dataPacket.ax()) + 100;
+    if(abs(dataPacket.ay()) > m_yAxisMax)
+        m_yAxisMax = abs(dataPacket.ay()) + 100;
+    if(abs(dataPacket.az()) > m_yAxisMax)
+        m_yAxisMax = abs(dataPacket.az()) + 100;
+
+    if(abs(dataPacket.gx()) > m_yAxisMax)
+        m_yAxisMax = abs(dataPacket.gx()) + 100;
+    if(abs(dataPacket.gy()) > m_yAxisMax)
+        m_yAxisMax = abs(dataPacket.gy()) + 100;
+    if(abs(dataPacket.gz()) > m_yAxisMax)
+        m_yAxisMax = abs(dataPacket.gz()) + 100;
+
+    accelPlot->yAxis->setRange(-1 * m_yAxisMax, m_yAxisMax);
+    gyroPlot->yAxis->setRange(-1 * m_yAxisMax, m_yAxisMax);
+}
+
 void MainWindow::updateAccelAndGyro(QCustomPlot *accelPlot, QCustomPlot *gyroPlot, Packet &dataPacket)
 {
+    updateMaxYAxis(accelPlot, gyroPlot, dataPacket);
     updatePlot(accelPlot, dataPacket.ax(), dataPacket.ay(), dataPacket.az());
     updatePlot(gyroPlot, dataPacket.gx(), dataPacket.gy(), dataPacket.gz());
 }
@@ -213,6 +281,9 @@ void MainWindow::on_horizontalSlider_valueChanged(int value)
     {
         m_parsedPacket = m_loadedPackets[m_sliderPosition];
         updateUI(m_parsedPacket);
+        //ui->textEdit->verticalScrollBar()->setValue(m_sliderPosition);
+        QTextCursor cursor(ui->textEdit->document()->findBlockByLineNumber(m_sliderPosition-1));
+        ui->textEdit->setTextCursor(cursor);
     }
 }
 
@@ -273,6 +344,54 @@ void MainWindow::on_pushButton_2_clicked()
     redrawDataFromBuffer(true);
 }
 
+void MainWindow::replotAllViewsWithCustomLayers()
+{
+    Packet bufferPacketIn;
+    Packet bufferPacketOut;
+    m_xAxisCounter = 0;
+
+    resetInPlotters();
+    resetOutPlotters();
+
+    m_loadedPacketsProcessed.resize(m_loadedPackets.size());
+
+    for(int i=0; i<m_loadedPackets.size(); i++){
+        bufferPacketIn = m_loadedPackets[i];
+        bufferPacketOut = m_loadedPacketsProcessed[i];
+
+        if( !m_checkedLayersPreviousState[0] ){
+            bufferPacketIn.ax(0);
+            bufferPacketOut.ax(0);
+        }
+        if( !m_checkedLayersPreviousState[1] ){
+            bufferPacketIn.ay(0);
+            bufferPacketOut.ay(0);
+        }
+        if( !m_checkedLayersPreviousState[2] ){
+            bufferPacketIn.az(0);
+            bufferPacketOut.az(0);
+        }
+
+        if( !m_checkedLayersPreviousState[3] ){
+            bufferPacketIn.gx(0);
+            bufferPacketOut.gx(0);
+        }
+        if( !m_checkedLayersPreviousState[4] ){
+            bufferPacketIn.gy(0);
+            bufferPacketOut.gy(0);
+        }
+        if( !m_checkedLayersPreviousState[5] ){
+            bufferPacketIn.gz(0);
+            bufferPacketOut.gz(0);
+        }
+
+        updateAccelAndGyro(ui->customPlotAccelerometerIn, ui->customPlotGyroscopeIn, bufferPacketIn);
+        updateAccelAndGyro(ui->customPlotAccelerometerOut, ui->customPlotGyroscopeOut, bufferPacketOut);
+        showPacketsProgress(i, (m_loadedPackets.size() - 1));
+        m_xAxisCounter++;
+    }
+}
+
 void MainWindow::on_pushButton_kalman_apply_clicked()
 {
     Packet processedPacket;
@@ -321,4 +440,44 @@ void MainWindow::on_pushButton_complementary_apply_clicked()
         showPacketsProgress(i, (m_loadedPackets.size() - 1));
         m_xAxisCounter++;
     }
+}
+
+void MainWindow::on_pushButton_3_clicked()
+{
+    int changes = 0;
+
+    if(ui->checkBox_draw_ax->isChecked() != m_checkedLayersPreviousState[0]){
+        m_checkedLayersPreviousState[0] = ui->checkBox_draw_ax->isChecked();
+        changes++;
+    }
+    if(ui->checkBox_draw_ay->isChecked() != m_checkedLayersPreviousState[1]){
+        m_checkedLayersPreviousState[1] = ui->checkBox_draw_ay->isChecked();
+        changes++;
+    }
+    if(ui->checkBox_draw_az->isChecked() != m_checkedLayersPreviousState[2]){
+        m_checkedLayersPreviousState[2] = ui->checkBox_draw_az->isChecked();
+        changes++;
+    }
+
+    if(ui->checkBox_draw_gx->isChecked() != m_checkedLayersPreviousState[3]){
+        m_checkedLayersPreviousState[3] = ui->checkBox_draw_gx->isChecked();
+        changes++;
+    }
+    if(ui->checkBox_draw_gy->isChecked() != m_checkedLayersPreviousState[4]){
+        m_checkedLayersPreviousState[4] = ui->checkBox_draw_gy->isChecked();
+        changes++;
+    }
+    if(ui->checkBox_draw_gz->isChecked() != m_checkedLayersPreviousState[5]){
+        m_checkedLayersPreviousState[5] = ui->checkBox_draw_gz->isChecked();
+        changes++;
+    }
+
+    //if(changes > 0){
+    replotAllViewsWithCustomLayers();
+}
+
+void MainWindow::on_pushButton_4_clicked()
+{
+    // Show FFT Form
+    m_fftForm->show();
 }

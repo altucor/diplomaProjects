@@ -24,13 +24,22 @@ class MainWindow : public QMainWindow
 public:
     explicit MainWindow(QWidget *parent = 0);
     ~MainWindow();
+    void initializeProgressBars(qint64 min, qint64 max, qint64 startValue);
     bool connectServer(UdpServerWrapper &serverPtr);
     void updateUI();
     void updateAccelPlot();
     void updateGyroPlot();
     void updateMousePos();
+    void resetMaxYAxis();
+    void updateMaxYAxis(QCustomPlot *accelPlot, QCustomPlot *gyroPlot, Packet & dataPacket);
     void updateSlider();
     void loadFromFile(QString fileName);
+    double accelToAngle(double value);
+    void processAccelAngles();
+    void gyroToSpeed(double value, double &speed);
+    void processGyroSpeeds();
+    void gyroToDistance(double value, double &speedValue, double &distance);
+    void processDistance();
 
 private:
     void accelPlotInitialization();
@@ -48,11 +57,24 @@ private:
     bool m_movingMouse = false;
     Packet m_parsedPacket;
     Packet m_zeroOffsetPacket;
-    int m_filterType = NONE;
+    FilterType m_filterType = NONE;
     bool m_state = PLAY;
     int m_sliderPosition = 0;
-    int m_plotWidth = 512;
+    quint64 m_plotWidth = 512;
     QVector<Packet> m_loadedPackets;
+    uint64_t m_dt = 5; // 5 ms polling
+    double m_1G = 2048.0;
+    double m_toDeg = 57.29577951308232087679815481410517033f;
+    double m_xAccelAngle = 0.0;
+    double m_yAccelAngle = 0.0;
+    double m_zAccelAngle = 0.0;
+    double m_xGyroSpeed = 0.0;
+    double m_yGyroSpeed = 0.0;
+    double m_zGyroSpeed = 0.0;
+    double m_xGyroDistance = 0.0;
+    double m_yGyroDistance = 0.0;
+    double m_zGyroDistance = 0.0;
+
 
 public slots:
     void processNewPacket(QByteArray data);
@@ -66,6 +88,8 @@ private slots:
     void on_pushButton_2_clicked();
     void on_radioButton_clicked();
     void on_radioButton_2_clicked();
+    void on_pushButton_5_clicked();
+    void on_radioButton_4_clicked();
 };
 
 #endif // MAINWINDOW_H

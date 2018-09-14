@@ -35,7 +35,8 @@ SOURCES += \
     kalmanpacketfilter.cpp \
     highpassfilter.cpp \
     complementaryfilter.cpp \
-    complementarypacketfilter.cpp
+    complementarypacketfilter.cpp \
+    form_fft.cpp
 
 HEADERS += \
         mainwindow.h \
@@ -46,7 +47,9 @@ HEADERS += \
     kalmanpacketfilter.h \
     highpassfilter.h \
     complementaryfilter.h \
-    complementarypacketfilter.h
+    complementarypacketfilter.h \
+    form_fft.h
 
 FORMS += \
-        mainwindow.ui
+        mainwindow.ui \
+    form_fft.ui

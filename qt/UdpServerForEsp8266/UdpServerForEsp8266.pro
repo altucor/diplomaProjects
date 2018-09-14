@@ -32,7 +32,8 @@ SOURCES += \
         qcustomplot.cpp \
     packetparser.cpp \
     kalman.cpp \
-    packet.cpp
+    packet.cpp \
+    Complementary.cpp
 
 HEADERS += \
         mainwindow.h \
@@ -40,7 +41,8 @@ HEADERS += \
         qcustomplot.h \
     packetparser.h \
     kalman.h \
-    packet.h
+    packet.h \
+    Complementary.h
 
 FORMS += \
         mainwindow.ui

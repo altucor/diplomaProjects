@@ -74,15 +74,24 @@ void PacketParser::m_parsePacket(QString packet)
 Packet PacketParser::getPacket()
 {
     switch(m_filterType){
-        case NONE: {
+        case RAW: {
             return m_parsedPacket;
             break;
         }
+        case NONE: {
+            return toAngle(m_parsedPacket);
+            break;
+        }
         case KALMAN: {
-            return kalman(m_parsedPacket);
+            return kalman(toAngle(m_parsedPacket));
+            break;
+        }
+        case COMPLEMENTARY: {
+            return complementary(toAngle(m_parsedPacket));
             break;
         }
     }
+    return m_parsedPacket;
 }
 
 Packet PacketParser::kalman(Packet packet)
@@ -101,9 +110,98 @@ Packet PacketParser::kalman(Packet packet)
     return filteredPacket;
 }
 
-void PacketParser::setFilter(int type)
+void PacketParser::setKalmanCoefficient(double coeff)
+{
+    m_kalmanFilterAx.setCoefficient(coeff);
+    m_kalmanFilterAy.setCoefficient(coeff);
+    m_kalmanFilterAz.setCoefficient(coeff);
+    m_kalmanFilterGx.setCoefficient(coeff);
+    m_kalmanFilterGy.setCoefficient(coeff);
+    m_kalmanFilterGz.setCoefficient(coeff);
+}
+
+Packet PacketParser::complementary(Packet packet)
+{
+    Packet filteredPacket;
+
+    filteredPacket.ax( m_complementaryFilterX.filter( packet.ax(), packet.gx(), m_gyroAngleX ) );
+    filteredPacket.ay( m_complementaryFilterY.filter( packet.ay(), packet.gy(), m_gyroAngleY ) );
+    filteredPacket.az( m_complementaryFilterZ.filter( packet.az(), packet.gz(), m_gyroAngleZ ) );
+
+    filteredPacket.gx(0);
+    filteredPacket.gy(0);
+    filteredPacket.gz(0);
+
+    filteredPacket.temp(packet.temp());
+    return filteredPacket;
+}
+
+void PacketParser::setComplementaryCoefficient(double coeff)
+{
+    m_complementaryFilterX.setCoefficient(coeff);
+    m_complementaryFilterY.setCoefficient(coeff);
+    m_complementaryFilterZ.setCoefficient(coeff);
+}
+
+void PacketParser::setDeltaTime(double dt)
+{
+    m_complementaryFilterX.setDeltaTime(dt);
+    m_complementaryFilterY.setDeltaTime(dt);
+    m_complementaryFilterZ.setDeltaTime(dt);
+}
+
+Packet PacketParser::toAngle(Packet packet)
+{
+    Packet processedPacket;
+
+    processedPacket.ax( accelDataToAngle(packet.ax()) );
+    processedPacket.ay( accelDataToAngle(packet.ay()) );
+    processedPacket.az( accelDataToAngle(packet.az()) );
+
+    processedPacket.gx( gyroDataToAngle(packet.gx(), m_gyroAngleX) );
+    processedPacket.gy( gyroDataToAngle(packet.gy(), m_gyroAngleY) );
+    processedPacket.gz( gyroDataToAngle(packet.gz(), m_gyroAngleZ) );
+
+    processedPacket.temp(packet.temp());
+
+    return processedPacket;
+}
+
+double PacketParser::accelDataToAngle(double accelData)
+{
+    // 16g - 2048 = 1G
+    double angle = 0.0;
+    double gValue = accelData / m_1G;
+
+    if(gValue > 1.0){
+        gValue = 1.0;
+    } else if(gValue < -1.0) {
+        gValue = -1.0;
+    }
+
+    if(gValue >= 0){
+        angle = 90 - m_toDeg * acos(gValue);
+    }else{
+        angle = m_toDeg * acos(-gValue) - 90;
+    }
+
+    return angle;
+}
+
+double PacketParser::gyroDataToAngle(double gyroData, double &resultGyroAngle)
+{
+    resultGyroAngle = resultGyroAngle + (gyroData / 16.384) * m_dt / 1000.0;
+    return resultGyroAngle;
+}
+
+void PacketParser::setFilter(FilterType type)
 {
     m_filterType = type;
+}
+
+FilterType PacketParser::getCurrentFilter()
+{
+    return m_filterType;
 }
 
 QString PacketParser::getString()
@@ -122,12 +220,4 @@ QString PacketParser::getString()
     return str;
 }
 
-void PacketParser::setKalmanCoefficient(double coeff)
-{
-    m_kalmanFilterAx.setCoefficient(coeff);
-    m_kalmanFilterAy.setCoefficient(coeff);
-    m_kalmanFilterAz.setCoefficient(coeff);
-    m_kalmanFilterGx.setCoefficient(coeff);
-    m_kalmanFilterGy.setCoefficient(coeff);
-    m_kalmanFilterGz.setCoefficient(coeff);
-}
+

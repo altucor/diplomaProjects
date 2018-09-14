@@ -12,13 +12,42 @@ MainWindow::MainWindow(QWidget *parent) :
 
     m_cursor = new QCursor;
     accelPlotInitialization();
+    initializeProgressBars(m_yAxisMax * (-1), m_yAxisMax, 0);
     gyroPlotInitialization();
     packetParserInitialization();
+    m_mpuPacketParser.setFilter(m_filterType);
 }
 
 MainWindow::~MainWindow()
 {
     delete ui;
+}
+
+void MainWindow::initializeProgressBars(qint64 min, qint64 max, qint64 startValue)
+{
+    ui->progressBar_0->setMinimum(min);
+    ui->progressBar_0->setMaximum(max);
+    ui->progressBar_0->setValue(startValue);
+
+    ui->progressBar_1->setMinimum(min);
+    ui->progressBar_1->setMaximum(max);
+    ui->progressBar_1->setValue(startValue);
+
+    ui->progressBar_2->setMinimum(min);
+    ui->progressBar_2->setMaximum(max);
+    ui->progressBar_2->setValue(startValue);
+
+    ui->progressBar_3->setMinimum(min);
+    ui->progressBar_3->setMaximum(max);
+    ui->progressBar_3->setValue(startValue);
+
+    ui->progressBar_4->setMinimum(min);
+    ui->progressBar_4->setMaximum(max);
+    ui->progressBar_4->setValue(startValue);
+
+    ui->progressBar_5->setMinimum(min);
+    ui->progressBar_5->setMaximum(max);
+    ui->progressBar_5->setValue(startValue);
 }
 
 void MainWindow::accelPlotInitialization()
@@ -81,19 +110,123 @@ void MainWindow::processNewPacket(QByteArray data)
 {
     if(m_state == PAUSE) return;
     m_mpuPacketParser.setPacket(data);
-    m_mpuPacketParser.setFilter(m_filterType);
     m_parsedPacket = m_mpuPacketParser.getPacket();
     ui->textEdit->append(m_parsedPacket.toString());
+    updateMaxYAxis(ui->customPlotAccel, ui->customPlotGyro, m_parsedPacket);
     updateUI();
     updateAccelPlot();
     updateGyroPlot();
     updateMousePos();
+    //processAccelAngles();
+    //processGyroSpeeds();
+    //processDistance();
 
     m_mpuPacketParser.setKalmanCoefficient(ui->doubleSpinBox->value());
+    m_mpuPacketParser.setComplementaryCoefficient(ui->doubleSpinBox_2->value());
+    m_mpuPacketParser.setDeltaTime(m_dt);
 
     updateSlider();
 
     m_xAxisCounter++;
+}
+
+double MainWindow::accelToAngle(double value)
+{
+    // 16g - 2048 = 1G
+    double angle = 0.0;
+    double gValue = value / m_1G;
+
+    if(gValue > 1.0){
+        gValue = 1.0;
+    } else if(gValue < -1.0) {
+        gValue = -1.0;
+    }
+
+    if(gValue >= 0){
+        angle = 90 - m_toDeg * acos(gValue);
+    }else{
+        angle = m_toDeg * acos(-gValue) - 90;
+    }
+
+    return angle;
+}
+
+void MainWindow::processAccelAngles()
+{
+    //m_xAccelAngle = accelToAngle(m_parsedPacket.ax());
+    //m_yAccelAngle = accelToAngle(m_parsedPacket.ay());
+    //m_zAccelAngle = accelToAngle(m_parsedPacket.az());
+
+    ui->label->setText("Accel Angle: X=" + QString::number(m_xAccelAngle) + "; Y=" + QString::number(m_yAccelAngle) + "; Z=" + QString::number(m_zAccelAngle));
+}
+
+void MainWindow::gyroToSpeed(double value, double &speed)
+{
+    value /= 16.384;
+    speed = speed + value * m_dt / 1000.0;
+}
+
+void MainWindow::processGyroSpeeds()
+{
+    //gyroToSpeed(m_parsedPacket.gx(), m_xGyroSpeed);
+    //gyroToSpeed(m_parsedPacket.gy(), m_yGyroSpeed);
+    //gyroToSpeed(m_parsedPacket.gz(), m_zGyroSpeed);
+
+    ui->label_9->setText("Gyro Speed: X=" + QString::number(m_xGyroSpeed) + "; Y=" + QString::number(m_yGyroSpeed) + "; Z=" + QString::number(m_zGyroSpeed));
+}
+
+void MainWindow::gyroToDistance(double value, double &speedValue, double &distance)
+{
+    // s(t) = s0 + v(t)*t = s0 + v0*t + a0*t*t/2
+    // s(t) = s0 + v0*t + a0*t*t/2
+    gyroToSpeed(value, speedValue);
+    distance = distance + speedValue * m_dt + value * m_dt * m_dt / 2;
+}
+
+void MainWindow::processDistance()
+{
+    gyroToDistance(m_parsedPacket.gx(), m_xGyroSpeed, m_xGyroDistance);
+    gyroToDistance(m_parsedPacket.gy(), m_yGyroSpeed, m_yGyroDistance);
+    gyroToDistance(m_parsedPacket.gz(), m_zGyroSpeed, m_zGyroDistance);
+
+    ui->label_10->setText("Gyro Distance: X=" + QString::number(m_xGyroDistance) + "; Y=" + QString::number(m_yGyroDistance) + "; Z=" + QString::number(m_zGyroDistance));
+}
+
+void MainWindow::resetMaxYAxis()
+{
+    Packet nullPacket;
+
+    nullPacket.ax(50);
+    nullPacket.ay(50);
+    nullPacket.az(50);
+
+    nullPacket.gx(50);
+    nullPacket.gy(50);
+    nullPacket.gz(50);
+
+    m_yAxisMax = 10;
+
+    updateMaxYAxis(ui->customPlotAccel, ui->customPlotGyro, nullPacket);
+}
+
+void MainWindow::updateMaxYAxis(QCustomPlot *accelPlot, QCustomPlot *gyroPlot, Packet & dataPacket)
+{
+    if(abs(dataPacket.ax()) > m_yAxisMax)
+        m_yAxisMax = abs(dataPacket.ax()) + 100;
+    if(abs(dataPacket.ay()) > m_yAxisMax)
+        m_yAxisMax = abs(dataPacket.ay()) + 100;
+    if(abs(dataPacket.az()) > m_yAxisMax)
+        m_yAxisMax = abs(dataPacket.az()) + 100;
+
+    if(abs(dataPacket.gx()) > m_yAxisMax)
+        m_yAxisMax = abs(dataPacket.gx()) + 100;
+    if(abs(dataPacket.gy()) > m_yAxisMax)
+        m_yAxisMax = abs(dataPacket.gy()) + 100;
+    if(abs(dataPacket.gz()) > m_yAxisMax)
+        m_yAxisMax = abs(dataPacket.gz()) + 100;
+
+    accelPlot->yAxis->setRange(-1 * m_yAxisMax, m_yAxisMax);
+    gyroPlot->yAxis->setRange(-1 * m_yAxisMax, m_yAxisMax);
 }
 
 void MainWindow::updateSlider()
@@ -127,9 +260,6 @@ void MainWindow::updateAccelPlot()
 
     ui->customPlotAccel->xAxis->setRange(m_xAxisCounter, m_plotWidth, Qt::AlignRight);
     ui->customPlotAccel->replot();
-
-    //if(m_xAxisCounter > m_xAxisMax)
-    //    m_xAxisCounter = 0;
 }
 
 void MainWindow::updateGyroPlot()
@@ -284,4 +414,32 @@ void MainWindow::on_radioButton_2_clicked()
     ui->pushButton_3->setDisabled(true);
     ui->pushButton_4->setDisabled(true);
     ui->pushButton_5->setDisabled(false);
+}
+
+void MainWindow::on_pushButton_5_clicked()
+{
+    // Apply filtering on fly
+
+    if(ui->radioButton_raw->isChecked()){
+        m_mpuPacketParser.setFilter(FilterType::RAW);
+        resetMaxYAxis();
+        initializeProgressBars(m_yAxisMax * (-1), m_yAxisMax, 0);
+    } else if(ui->radioButton_ang_non_filtered->isChecked()){
+        m_mpuPacketParser.setFilter(FilterType::NONE);
+        resetMaxYAxis();
+        initializeProgressBars(m_yAxisMax * (-1), m_yAxisMax, 0);
+    } else if(ui->radioButton_ang_kalman->isChecked()){
+        m_mpuPacketParser.setFilter(FilterType::KALMAN);
+        resetMaxYAxis();
+        initializeProgressBars(m_yAxisMax * (-1), m_yAxisMax, 0);
+    } else if(ui->radioButton_ang_complementary->isChecked()){
+        m_mpuPacketParser.setFilter(FilterType::COMPLEMENTARY);
+        resetMaxYAxis();
+        initializeProgressBars(m_yAxisMax * (-1), m_yAxisMax, 0);
+    }
+}
+
+void MainWindow::on_radioButton_4_clicked()
+{
+
 }
