@@ -52,12 +52,12 @@ private:
     QPoint m_mousePoint;
     quint64 m_xAxisCounter = 0;
     quint64 m_xAxisMax = 1024 * 2;
-    double m_yAxisMax = 3100.0;
+    double m_yAxisMax = 100.0;
     PacketParser m_mpuPacketParser;
     bool m_movingMouse = false;
     Packet m_parsedPacket;
     Packet m_zeroOffsetPacket;
-    FilterType m_filterType = NONE;
+    FilterType m_filterType = RAW;
     bool m_state = PLAY;
     int m_sliderPosition = 0;
     quint64 m_plotWidth = 512;
@@ -68,12 +68,12 @@ private:
     double m_xAccelAngle = 0.0;
     double m_yAccelAngle = 0.0;
     double m_zAccelAngle = 0.0;
-    double m_xGyroSpeed = 0.0;
-    double m_yGyroSpeed = 0.0;
-    double m_zGyroSpeed = 0.0;
-    double m_xGyroDistance = 0.0;
-    double m_yGyroDistance = 0.0;
-    double m_zGyroDistance = 0.0;
+    double m_xSpeed = 0.0;
+    double m_ySpeed = 0.0;
+    double m_zSpeed = 0.0;
+    double m_xDistance = 0.0;
+    double m_yDistance = 0.0;
+    double m_zDistance = 0.0;
 
 
 public slots:

@@ -33,7 +33,8 @@ SOURCES += \
     packetparser.cpp \
     kalman.cpp \
     packet.cpp \
-    Complementary.cpp
+    Complementary.cpp \
+    distanceintegrator.cpp
 
 HEADERS += \
         mainwindow.h \
@@ -42,7 +43,8 @@ HEADERS += \
     packetparser.h \
     kalman.h \
     packet.h \
-    Complementary.h
+    Complementary.h \
+    distanceintegrator.h
 
 FORMS += \
         mainwindow.ui

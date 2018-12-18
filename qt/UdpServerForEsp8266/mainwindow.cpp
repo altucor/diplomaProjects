@@ -172,24 +172,24 @@ void MainWindow::processGyroSpeeds()
     //gyroToSpeed(m_parsedPacket.gy(), m_yGyroSpeed);
     //gyroToSpeed(m_parsedPacket.gz(), m_zGyroSpeed);
 
-    ui->label_9->setText("Gyro Speed: X=" + QString::number(m_xGyroSpeed) + "; Y=" + QString::number(m_yGyroSpeed) + "; Z=" + QString::number(m_zGyroSpeed));
+    ui->label_9->setText("Speed: X=" + QString::number(m_xSpeed) + "; Y=" + QString::number(m_ySpeed) + "; Z=" + QString::number(m_zSpeed));
 }
 
 void MainWindow::gyroToDistance(double value, double &speedValue, double &distance)
 {
     // s(t) = s0 + v(t)*t = s0 + v0*t + a0*t*t/2
     // s(t) = s0 + v0*t + a0*t*t/2
-    gyroToSpeed(value, speedValue);
+    value /= 16.384;
     distance = distance + speedValue * m_dt + value * m_dt * m_dt / 2;
 }
 
 void MainWindow::processDistance()
 {
-    gyroToDistance(m_parsedPacket.gx(), m_xGyroSpeed, m_xGyroDistance);
-    gyroToDistance(m_parsedPacket.gy(), m_yGyroSpeed, m_yGyroDistance);
-    gyroToDistance(m_parsedPacket.gz(), m_zGyroSpeed, m_zGyroDistance);
+    gyroToDistance(m_parsedPacket.gx(), m_xSpeed, m_xDistance);
+    gyroToDistance(m_parsedPacket.gy(), m_ySpeed, m_yDistance);
+    gyroToDistance(m_parsedPacket.gz(), m_zSpeed, m_zDistance);
 
-    ui->label_10->setText("Gyro Distance: X=" + QString::number(m_xGyroDistance) + "; Y=" + QString::number(m_yGyroDistance) + "; Z=" + QString::number(m_zGyroDistance));
+    ui->label_10->setText("Distance: X=" + QString::number(m_xDistance) + "; Y=" + QString::number(m_yDistance) + "; Z=" + QString::number(m_zDistance));
 }
 
 void MainWindow::resetMaxYAxis()
@@ -267,6 +267,17 @@ void MainWindow::updateGyroPlot()
     ui->customPlotGyro->graph(0)->addData(m_xAxisCounter, m_parsedPacket.gx());
     ui->customPlotGyro->graph(1)->addData(m_xAxisCounter, m_parsedPacket.gy());
     ui->customPlotGyro->graph(2)->addData(m_xAxisCounter, m_parsedPacket.gz());
+
+    //ui->customPlotGyro->graph(0)->addData(m_xAxisCounter, m_xDistance);
+    //ui->customPlotGyro->graph(1)->addData(m_xAxisCounter, m_yDistance);
+    //ui->customPlotGyro->graph(2)->addData(m_xAxisCounter, m_zDistance);
+
+    //m_yAxisMax = std::max(static_cast<double>(abs(m_xDistance)),
+    //                      static_cast<double>(abs(m_yDistance)));
+    //m_yAxisMax = std::max(m_yAxisMax,
+    //                      static_cast<double>(abs(m_zDistance)));
+    //
+    //m_yAxisMax += 1000;
 
     ui->customPlotGyro->xAxis->setRange(m_xAxisCounter, m_plotWidth, Qt::AlignRight);
     ui->customPlotGyro->replot();
@@ -420,19 +431,26 @@ void MainWindow::on_pushButton_5_clicked()
 {
     // Apply filtering on fly
 
-    if(ui->radioButton_raw->isChecked()){
+    if(ui->radioButton_raw->isChecked())
+    {
         m_mpuPacketParser.setFilter(FilterType::RAW);
         resetMaxYAxis();
         initializeProgressBars(m_yAxisMax * (-1), m_yAxisMax, 0);
-    } else if(ui->radioButton_ang_non_filtered->isChecked()){
+    }
+    else if(ui->radioButton_ang_non_filtered->isChecked())
+    {
         m_mpuPacketParser.setFilter(FilterType::NONE);
         resetMaxYAxis();
         initializeProgressBars(m_yAxisMax * (-1), m_yAxisMax, 0);
-    } else if(ui->radioButton_ang_kalman->isChecked()){
+    }
+    else if(ui->radioButton_ang_kalman->isChecked())
+    {
         m_mpuPacketParser.setFilter(FilterType::KALMAN);
         resetMaxYAxis();
         initializeProgressBars(m_yAxisMax * (-1), m_yAxisMax, 0);
-    } else if(ui->radioButton_ang_complementary->isChecked()){
+    }
+    else if(ui->radioButton_ang_complementary->isChecked())
+    {
         m_mpuPacketParser.setFilter(FilterType::COMPLEMENTARY);
         resetMaxYAxis();
         initializeProgressBars(m_yAxisMax * (-1), m_yAxisMax, 0);

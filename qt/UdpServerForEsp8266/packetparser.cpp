@@ -158,9 +158,18 @@ Packet PacketParser::toAngle(Packet packet)
     processedPacket.ay( accelDataToAngle(packet.ay()) );
     processedPacket.az( accelDataToAngle(packet.az()) );
 
-    processedPacket.gx( gyroDataToAngle(packet.gx(), m_gyroAngleX) );
-    processedPacket.gy( gyroDataToAngle(packet.gy(), m_gyroAngleY) );
-    processedPacket.gz( gyroDataToAngle(packet.gz(), m_gyroAngleZ) );
+    gyroDataToAngle(packet.gx(), m_gyroAngleX);
+    gyroDataToAngle(packet.gy(), m_gyroAngleY);
+    gyroDataToAngle(packet.gz(), m_gyroAngleZ);
+
+    processedPacket.gx( m_gyroAngleX );
+    processedPacket.gy( m_gyroAngleY );
+    processedPacket.gz( m_gyroAngleZ );
+
+    //processedPacket = packet;
+    //
+    //DistanceIntegrator di;
+    //di.processPacket(processedPacket);
 
     processedPacket.temp(packet.temp());
 
@@ -188,10 +197,9 @@ double PacketParser::accelDataToAngle(double accelData)
     return angle;
 }
 
-double PacketParser::gyroDataToAngle(double gyroData, double &resultGyroAngle)
+void PacketParser::gyroDataToAngle(double gyroData, double &resultGyroAngle)
 {
     resultGyroAngle = resultGyroAngle + (gyroData / 16.384) * m_dt / 1000.0;
-    return resultGyroAngle;
 }
 
 void PacketParser::setFilter(FilterType type)

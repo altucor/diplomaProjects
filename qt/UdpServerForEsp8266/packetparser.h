@@ -9,6 +9,7 @@
 #include "packet.h"
 #include "kalman.h"
 #include "Complementary.h"
+#include "distanceintegrator.h"
 
 enum FilterType{
     RAW = 0,
@@ -34,7 +35,9 @@ public:
     void setDeltaTime(double dt);
     Packet toAngle(Packet packet);
     double accelDataToAngle(double accelData);
-    double gyroDataToAngle(double gyroData, double &resultGyroAngle);
+    void gyroDataToAngle(double gyroData, double &resultGyroAngle);
+    void firstIntegration(double in, double &out);
+    void secondIntegration(double in, double &out);
 
 private:
     void m_parsePacket(QByteArray packet);
